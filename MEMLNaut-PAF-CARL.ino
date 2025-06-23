@@ -115,7 +115,8 @@ void setup()
         delay(1);
     }
 
-    scr.post("MEMLNaut: let's go!");
+    scr.post("MEMLNaut PAF CARL");
+    scr.post("let's go!");
     add_repeating_timer_ms(-39, displayUpdate, NULL, &timerDisplay);
 
     Serial.println("Finished initialising core 0.");
