@@ -96,6 +96,8 @@ protected:
     float noteVel = 0.f;
     bool firstParamsReceived = false;
 
+    float envdec=0.2f/9000.f; // Decay rate for the envelope
+
 };
 
 #endif  // __PAF_SYNTH_AUDIO_APP_HPP__

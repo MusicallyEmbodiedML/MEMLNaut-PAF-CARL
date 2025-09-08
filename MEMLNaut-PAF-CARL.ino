@@ -1,6 +1,6 @@
 // #include "src/memllib/interface/InterfaceBase.hpp"
 #include "src/memllib/interface/MIDIInOut.hpp"
-#include "src/memllib/hardware/memlnaut/display.hpp"
+// #include "src/memllib/hardware/memlnaut/display.hpp"
 #include "src/memllib/audio/AudioAppBase.hpp"
 #include "src/memllib/audio/AudioDriver.hpp"
 #include "src/memllib/hardware/memlnaut/MEMLNaut.hpp"
@@ -12,7 +12,7 @@
 
 #define APP_SRAM __not_in_flash("app")
 
-display APP_SRAM scr;
+// display APP_SRAM scr;
 
 bool core1_disable_systick = true;
 bool core1_separate_stack = true;
@@ -55,16 +55,16 @@ constexpr size_t kN_InputParams = 3;
 #define READ_VOLATILE(var) ({ MEMORY_BARRIER(); typeof(var) __temp = (var); MEMORY_BARRIER(); __temp; })
 
 
-struct repeating_timer APP_SRAM timerDisplay;
-inline bool __not_in_flash_func(displayUpdate)(__unused struct repeating_timer *t) {
-    scr.update();
-    return true;
-}
+// struct repeating_timer APP_SRAM timerDisplay;
+// inline bool __not_in_flash_func(displayUpdate)(__unused struct repeating_timer *t) {
+//     scr.update();
+//     return true;
+// }
 
 void setup()
 {
 
-    scr.setup();
+    // scr.setup();
     bus_ctrl_hw->priority = BUSCTRL_BUS_PRIORITY_DMA_W_BITS |
         BUSCTRL_BUS_PRIORITY_DMA_R_BITS | BUSCTRL_BUS_PRIORITY_PROC1_BITS;
 
@@ -89,8 +89,8 @@ void setup()
     // Setup interface with memory barrier protection
     WRITE_VOLATILE(interface_ready, true);
     // Bind interface after ensuring it's fully initialized
-    RLInterface->bind_RL_interface(scr);
-    Serial.println("Bound RL interface to MEMLNaut.");
+    // RLInterface->bind_RL_interface(scr);
+    // Serial.println("Bound RL interface to MEMLNaut.");
 
     midi_interf = std::make_shared<MIDIInOut>();
     midi_interf->Setup(0);
@@ -115,9 +115,10 @@ void setup()
         delay(1);
     }
 
-    scr.post("MEMLNaut PAF CARL");
-    scr.post("let's go!");
-    add_repeating_timer_ms(-39, displayUpdate, NULL, &timerDisplay);
+    // scr.post("MEMLNaut PAF CARL");
+    // scr.post("let's go!");
+    // add_repeating_timer_ms(-39, displayUpdate, NULL, &timerDisplay);
+    MEMLNaut::Instance()->addSystemInfoView();
 
     Serial.println("Finished initialising core 0.");
 }

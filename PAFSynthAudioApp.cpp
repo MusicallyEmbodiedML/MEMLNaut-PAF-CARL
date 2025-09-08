@@ -1,6 +1,8 @@
 #include "PAFSynthAudioApp.hpp"
 #include "src/memllib/synth/maximilian.h" // Required for maxiSettings etc.
 
+#define ARPEGGIATOR
+
 PAFSynthAudioApp::PAFSynthAudioApp() : AudioAppBase() {}
 
 bool PAFSynthAudioApp::euclidean(float phase, const size_t n, const size_t k, const size_t offset, const float pulseWidth)
@@ -41,22 +43,53 @@ stereosample_t PAFSynthAudioApp::Process(const stereosample_t x)
     // y = y * 0.3f;
     // const float envamp = env.play(counter==0);
     // const float envamp = line.play(counter==0);
-    if(newNote) {
-    // if(zxdetect.onZX(euclidNewNote)) {
-        newNote = false;
+//     if(newNote) {
+//     // if(zxdetect.onZX(euclidNewNote)) {
+//         newNote = false;
+//         envamp=0.8f;
+//         // freqIndex++;
+//         // if(freqIndex >= 4) {
+//         //     freqIndex = 0;
+//         // }
+//         // arpFreq = frequencies[freqIndex];
+//    }else{
+//         constexpr float envdec = 0.2f/9000.f;
+//         envamp -= envdec;
+//         if (envamp < 0.f) {
+//             envamp = 0.f;
+//         }
+//     }
+
+
+#ifdef ARPEGGIATOR
+    const float ph = phasorOsc.phasor(1);
+    const bool euclidNewNote = euclidean(ph, 12, euclidN, 0, 0.1f);
+    if(zxdetect.onZX(euclidNewNote)) {
         envamp=0.8f;
-        // freqIndex++;
-        // if(freqIndex >= 4) {
-        //     freqIndex = 0;
-        // }
-        // arpFreq = frequencies[freqIndex];
+        freqIndex++;
+        if(freqIndex >= nFREQs) {
+            freqIndex = 0;
+        }
+        baseFreq = frequencies[freqIndex];
    }else{
-        constexpr float envdec = 0.2f/9000.f;
+        // constexpr float envdec = 0.2f/9000.f;
         envamp -= envdec;
         if (envamp < 0.f) {
             envamp = 0.f;
         }
     }
+#else
+    if(newNote) {
+        newNote = false;
+        envamp=0.8f;
+   }else{
+        // constexpr float envdec = 0.2f/9000.f;
+        envamp -= envdec;
+        if (envamp < 0.f) {
+            envamp = 0.f;
+        }
+    }
+#endif
     // PERIODIC_DEBUG(3000, Serial.println(y);)
     y = y * envamp* envamp;
     // counter++;
@@ -73,7 +106,9 @@ stereosample_t PAFSynthAudioApp::Process(const stereosample_t x)
     //     Serial.println(envamp);
     // })
 
+#ifndef ARPEGGIATOR
     y *= noteVel;
+#endif
 
     float d1 = (dl1.play(y, 3500, 0.8f) * dl1mix);
     // float d2 = (dl2.play(y, 15000, 0.8f) * dl2mix);
@@ -187,6 +222,9 @@ void PAFSynthAudioApp::ProcessParams(const std::vector<float>& params)
     detune = 1.0f + (params[18] * 0.1);
 
     euclidN = static_cast<size_t>(2 + (params[19] * 5));
+
+    envdec=((params[20] * 3.f) + 0.1f)/9000.f; // Decay rate for the envelope
+
 
     // Serial.printf("%f %f %f %f %f\n", paf0_cf,  paf0_bw, paf0_vib, paf0_vfr, paf0_shift);
 }
