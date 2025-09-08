@@ -117,6 +117,19 @@ void setup()
     // scr.post("MEMLNaut PAF CARL");
     // scr.post("let's go!");
     // add_repeating_timer_ms(-39, displayUpdate, NULL, &timerDisplay);
+
+    std::shared_ptr<MessageView> helpView = std::make_shared<MessageView>("Help");
+    helpView->post("PAF synth CARL");
+    helpView->post("TA: Down: Forget replay memory");
+    helpView->post("MA: Up: Randomise actor");
+    helpView->post("MA: Down: Randomise critic");
+    helpView->post("MB: Up: Positive reward");
+    helpView->post("MB: Down: Negative reward");
+    helpView->post("Y: Optimisation rate");
+    helpView->post("Z: OU noise");
+    helpView->post("Joystick: Explore");
+    MEMLNaut::Instance()->disp->AddView(helpView);
+
     MEMLNaut::Instance()->addSystemInfoView();
 
     Serial.println("Finished initialising core 0.");
