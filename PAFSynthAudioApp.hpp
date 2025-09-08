@@ -27,6 +27,67 @@ public:
 
     stereosample_t __force_inline Process(const stereosample_t x) override;
 
+    float __force_inline ProcessLean()
+    {
+        float x1[1];
+
+        // const float trig = pulse.square(1);
+
+        paf0.play(x1, 1, baseFreq, baseFreq + (paf0_cf * baseFreq), paf0_bw * baseFreq, paf0_vib, paf0_vfr, paf0_shift, 0);
+        float y = x1[0];
+
+        const float freq1 = baseFreq * detune;
+
+        paf1.play(x1, 1, freq1, freq1 + (paf1_cf * freq1), paf1_bw * freq1, paf1_vib, paf1_vfr, paf1_shift, 1);
+        y += x1[0];
+
+        const float freq2 = freq1 * detune;
+
+        paf2.play(x1, 1, freq2, freq2 + (paf2_cf * freq2), paf2_bw * freq2, paf2_vib, paf2_vfr, paf2_shift, 1);
+        y += x1[0];
+
+    #ifdef ARPEGGIATOR
+        const float ph = phasorOsc.phasor(1);
+        const bool euclidNewNote = euclidean(ph, 12, euclidN, 0, 0.1f);
+        if(zxdetect.onZX(euclidNewNote)) {
+            envamp=0.8f;
+            freqIndex++;
+            if(freqIndex >= nFREQs) {
+                freqIndex = 0;
+            }
+            baseFreq = frequencies[freqIndex];
+    }else{
+            // constexpr float envdec = 0.2f/9000.f;
+            envamp -= envdec;
+            if (envamp < 0.f) {
+                envamp = 0.f;
+            }
+        }
+    #else
+        if(newNote) {
+            newNote = false;
+            envamp=0.8f;
+    }else{
+            // constexpr float envdec = 0.2f/9000.f;
+            envamp -= envdec;
+            if (envamp < 0.f) {
+                envamp = 0.f;
+            }
+        }
+    #endif)
+        y = y * envamp* envamp;
+
+    #ifndef ARPEGGIATOR
+        y *= noteVel;
+    #endif
+
+        float d1 = (dl1.play(y, 3500, 0.8f) * dl1mix);
+        // float d2 = (dl2.play(y, 15000, 0.8f) * dl2mix);
+        y = y + d1;// + d2;
+        frame++;
+        return y;
+    }
+
     void Setup(float sample_rate, std::shared_ptr<InterfaceBase> interface) override;
 
     void ProcessParams(const std::vector<float>& params) override;

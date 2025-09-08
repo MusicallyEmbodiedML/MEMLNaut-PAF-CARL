@@ -12,8 +12,6 @@
 
 #define APP_SRAM __not_in_flash("app")
 
-// display APP_SRAM scr;
-
 bool core1_disable_systick = true;
 bool core1_separate_stack = true;
 
@@ -35,7 +33,8 @@ std::shared_ptr<InterfaceRL> APP_SRAM RLInterface;
 
 std::shared_ptr<MIDIInOut> APP_SRAM midi_interf;
 
-
+// Statically allocated, properly aligned storage in AUDIO_MEM for objects
+alignas(PAFSynthAudioApp) char AUDIO_MEM audio_app_mem[sizeof(PAFSynthAudioApp)];
 std::shared_ptr<PAFSynthAudioApp> __scratch_y("audio") audio_app;
 
 // Inter-core communication
@@ -89,7 +88,7 @@ void setup()
     // Setup interface with memory barrier protection
     WRITE_VOLATILE(interface_ready, true);
     // Bind interface after ensuring it's fully initialized
-    // RLInterface->bind_RL_interface(scr);
+    RLInterface->bind_RL_interface();
     // Serial.println("Bound RL interface to MEMLNaut.");
 
     midi_interf = std::make_shared<MIDIInOut>();
@@ -100,7 +99,7 @@ void setup()
         midi_interf->SetNoteCallback([RLInterface] (bool noteon, uint8_t note_number, uint8_t vel_value) {
         if (noteon) {
             uint8_t midimsg[2] = {note_number, vel_value };
-            queue_try_add(&audio_app->qMIDINoteOn, &midimsg);   
+            queue_try_add(&audio_app->qMIDINoteOn, &midimsg);
         }
             Serial.printf("MIDI Note %d: %d\n", note_number, vel_value);
         });
@@ -157,10 +156,13 @@ void setup1()
 
     // Create audio app with memory barrier protection
     {
-        auto temp_audio_app = std::make_shared<PAFSynthAudioApp>();
+        PAFSynthAudioApp* audio_raw = new (audio_app_mem) PAFSynthAudioApp();
+        audio_raw->Setup(AudioDriver::GetSampleRate(), RLInterface);
 
-        temp_audio_app->Setup(AudioDriver::GetSampleRate(), RLInterface);
-        // temp_audio_app->Setup(AudioDriver::GetSampleRate(), dynamic_cast<std::shared_ptr<InterfaceBase>> (mlMode == IML ? interfaceIML : RLInterface));
+        // shared_ptr with custom deleter calling only the destructor (control block still allocates)
+        auto audio_deleter = [](PAFSynthAudioApp* p) { if (p) p->~PAFSynthAudioApp(); };
+        std::shared_ptr<PAFSynthAudioApp> temp_audio_app(audio_raw, audio_deleter);
+    
         MEMORY_BARRIER();
         audio_app = temp_audio_app;
         MEMORY_BARRIER();
