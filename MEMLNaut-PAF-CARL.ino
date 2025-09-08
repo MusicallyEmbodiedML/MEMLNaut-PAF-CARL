@@ -141,6 +141,26 @@ void loop()
     delay(10); // Add a small delay to avoid flooding the serial output
 }
 
+
+void AUDIO_FUNC(audio_block_callback)(float in[][kBufferSize], float out[][kBufferSize], size_t n_channels, size_t n_frames)
+{
+    digitalWrite(Pins::LED_TIMING, HIGH);
+    for (size_t i = 0; i < n_frames; ++i) {
+
+        float y = in[0][i];
+
+        // Audio processing
+        if (audio_app) {
+            y = audio_app->ProcessLean();
+        }
+
+        out[0][i] = y;
+        out[1][i] = y;
+    }
+    digitalWrite(Pins::LED_TIMING, LOW);
+}
+
+
 void setup1()
 {
     while (!READ_VOLATILE(serial_ready)) {
@@ -162,14 +182,17 @@ void setup1()
         // shared_ptr with custom deleter calling only the destructor (control block still allocates)
         auto audio_deleter = [](PAFSynthAudioApp* p) { if (p) p->~PAFSynthAudioApp(); };
         std::shared_ptr<PAFSynthAudioApp> temp_audio_app(audio_raw, audio_deleter);
-    
+
         MEMORY_BARRIER();
         audio_app = temp_audio_app;
         MEMORY_BARRIER();
     }
 
+    AudioDriver::SetBlockCallback(audio_block_callback);
     // Start audio driver
     AudioDriver::Setup();
+    AudioDriver::SetBlockCallback(audio_block_callback);
+
 
     WRITE_VOLATILE(core_1_ready, true);
     while (!READ_VOLATILE(core_0_ready)) {

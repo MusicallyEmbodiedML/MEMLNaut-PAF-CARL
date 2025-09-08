@@ -13,6 +13,9 @@
 #include "src/memllib/interface/InterfaceBase.hpp" // Added missing include
 
 
+#define ARPEGGIATOR
+
+
 class PAFSynthAudioApp : public AudioAppBase
 {
 public:

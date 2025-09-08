@@ -1,8 +1,6 @@
 #include "PAFSynthAudioApp.hpp"
 #include "src/memllib/synth/maximilian.h" // Required for maxiSettings etc.
 
-#define ARPEGGIATOR
-
 PAFSynthAudioApp::PAFSynthAudioApp() : AudioAppBase() {}
 
 bool PAFSynthAudioApp::euclidean(float phase, const size_t n, const size_t k, const size_t offset, const float pulseWidth)
