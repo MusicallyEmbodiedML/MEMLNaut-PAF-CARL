@@ -155,23 +155,23 @@ void loop()
 }
 
 
-void AUDIO_FUNC(audio_block_callback)(float in[][kBufferSize], float out[][kBufferSize], size_t n_channels, size_t n_frames)
-{
-    digitalWrite(Pins::LED_TIMING, HIGH);
-    for (size_t i = 0; i < n_frames; ++i) {
+// void AUDIO_FUNC(audio_block_callback)(float in[][kBufferSize], float out[][kBufferSize], size_t n_channels, size_t n_frames)
+// {
+//     // digitalWrite(Pins::LED, HIGH);
+//     for (size_t i = 0; i < n_frames; ++i) {
 
-        float y = in[0][i];
+//         float y = in[0][i];
 
-        // Audio processing
-        if (audio_app) {
-            y = audio_app->ProcessLean();
-        }
+//         // Audio processing
+//         if (audio_app) {
+//             y = audio_app->ProcessLean();
+//         }
 
-        out[0][i] = y;
-        out[1][i] = y;
-    }
-    digitalWrite(Pins::LED_TIMING, LOW);
-}
+//         out[0][i] = y;
+//         out[1][i] = y;
+//     }
+//     // digitalWrite(Pins::LED, LOW);
+// }
 
 
 void setup1()
@@ -201,10 +201,10 @@ void setup1()
         MEMORY_BARRIER();
     }
 
-    AudioDriver::SetBlockCallback(audio_block_callback);
+    // AudioDriver::SetBlockCallback(audio_block_callback);
     // Start audio driver
     AudioDriver::Setup();
-    AudioDriver::SetBlockCallback(audio_block_callback);
+    // AudioDriver::SetBlockCallback(audio_block_callback);
 
 
     WRITE_VOLATILE(core_1_ready, true);
