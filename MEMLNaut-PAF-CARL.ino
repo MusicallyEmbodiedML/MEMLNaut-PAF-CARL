@@ -63,8 +63,8 @@ constexpr size_t kN_InputParams = 3;
 
 void setup()
 {
+    set_sys_clock_khz(AudioDriver::GetSysClockSpeed(), true);
 
-    // scr.setup();
     bus_ctrl_hw->priority = BUSCTRL_BUS_PRIORITY_DMA_W_BITS |
         BUSCTRL_BUS_PRIORITY_DMA_R_BITS | BUSCTRL_BUS_PRIORITY_PROC1_BITS;
 
@@ -128,10 +128,6 @@ void setup()
         MEMORY_BARRIER();
         delay(1);
     }
-
-    // scr.post("MEMLNaut PAF CARL");
-    // scr.post("let's go!");
-    // add_repeating_timer_ms(-39, displayUpdate, NULL, &timerDisplay);
 
     std::shared_ptr<MessageView> helpView = std::make_shared<MessageView>("Help");
     helpView->post("PAF synth CARL");
