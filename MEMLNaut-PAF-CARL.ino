@@ -9,6 +9,7 @@
 #include "PAFSynthAudioApp.hpp"
 #include "src/memllib/examples/InterfaceRL.hpp"
 
+#define INTERFACE_TYPE InterfaceRL
 
 #define APP_SRAM __not_in_flash("app")
 
@@ -29,7 +30,7 @@ uint32_t get_rosc_entropy_seed(int bits) {
 
 
 // Global objects
-std::shared_ptr<InterfaceRL> APP_SRAM RLInterface;
+std::shared_ptr<INTERFACE_TYPE> APP_SRAM interface;
 
 std::shared_ptr<MIDIInOut> APP_SRAM midi_interf;
 
@@ -79,24 +80,38 @@ void setup()
     MEMLNaut::Initialize();
     pinMode(33, OUTPUT);
 
-    auto temp_interface = std::make_shared<InterfaceRL>();
-    temp_interface->setup(kN_InputParams, PAFSynthAudioApp::kN_Params);
-    MEMORY_BARRIER();
-    RLInterface = temp_interface;
-    MEMORY_BARRIER();
+    // auto temp_interface = std::make_shared<InterfaceRL>();
+    // temp_interface->setup(kN_InputParams, PAFSynthAudioApp::kN_Params);
+    // MEMORY_BARRIER();
+    // RLInterface = temp_interface;
+    // MEMORY_BARRIER();
 
+    // // Setup interface with memory barrier protection
+    // WRITE_VOLATILE(interface_ready, true);
+    // // Bind interface after ensuring it's fully initialized
+    // RLInterface->bind_RL_interface();
+    // // Serial.println("Bound RL interface to MEMLNaut.");
+
+    {
+        auto temp_interface = std::make_shared<INTERFACE_TYPE>();
+        temp_interface->setup(kN_InputParams, PAFSynthAudioApp::kN_Params);
+        MEMORY_BARRIER();
+        interface = temp_interface;
+        MEMORY_BARRIER();
+    }
     // Setup interface with memory barrier protection
     WRITE_VOLATILE(interface_ready, true);
     // Bind interface after ensuring it's fully initialized
-    RLInterface->bind_RL_interface();
-    // Serial.println("Bound RL interface to MEMLNaut.");
+    interface->bindInterface(false);
+    Serial.println("Bound interface to MEMLNaut.");
+
 
     midi_interf = std::make_shared<MIDIInOut>();
     midi_interf->Setup(0);
     midi_interf->SetMIDISendChannel(1);
     Serial.println("MIDI setup complete.");
     if (midi_interf) {
-        midi_interf->SetNoteCallback([RLInterface] (bool noteon, uint8_t note_number, uint8_t vel_value) {
+        midi_interf->SetNoteCallback([interface] (bool noteon, uint8_t note_number, uint8_t vel_value) {
         if (noteon) {
             uint8_t midimsg[2] = {note_number, vel_value };
             queue_try_add(&audio_app->qMIDINoteOn, &midimsg);
@@ -190,7 +205,7 @@ void setup1()
     // Create audio app with memory barrier protection
     {
         PAFSynthAudioApp* audio_raw = new (audio_app_mem) PAFSynthAudioApp();
-        audio_raw->Setup(AudioDriver::GetSampleRate(), RLInterface);
+        audio_raw->Setup(AudioDriver::GetSampleRate(), interface);
 
         // shared_ptr with custom deleter calling only the destructor (control block still allocates)
         auto audio_deleter = [](PAFSynthAudioApp* p) { if (p) p->~PAFSynthAudioApp(); };
