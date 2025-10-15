@@ -18,15 +18,15 @@ bool core1_disable_systick = true;
 bool core1_separate_stack = true;
 
 uint32_t get_rosc_entropy_seed(int bits) {
-    uint32_t seed = 0;
-    for (int i = 0; i < bits; ++i) {
-        // Wait for a bit of time to allow jitter to accumulate
-        busy_wait_us_32(5);
-        // Pull LSB from ROSC rand output
-        seed <<= 1;
-        seed |= (rosc_hw->randombit & 1);
-    }
-    return seed;
+  uint32_t seed = 0;
+  for (int i = 0; i < bits; ++i) {
+    // Wait for a bit of time to allow jitter to accumulate
+    busy_wait_us_32(5);
+    // Pull LSB from ROSC rand output
+    seed <<= 1;
+    seed |= (rosc_hw->randombit & 1);
+  }
+  return seed;
 }
 
 
@@ -52,7 +52,12 @@ constexpr size_t kN_InputParams = 3;
 
 // Add these macros near other globals
 #define MEMORY_BARRIER() __sync_synchronize()
-#define WRITE_VOLATILE(var, val) do { MEMORY_BARRIER(); (var) = (val); MEMORY_BARRIER(); } while (0)
+#define WRITE_VOLATILE(var, val) \
+  do { \
+    MEMORY_BARRIER(); \
+    (var) = (val); \
+    MEMORY_BARRIER(); \
+  } while (0)
 #define READ_VOLATILE(var) ({ MEMORY_BARRIER(); typeof(var) __temp = (var); MEMORY_BARRIER(); __temp; })
 
 
@@ -62,176 +67,178 @@ constexpr size_t kN_InputParams = 3;
 //     return true;
 // }
 
-void setup()
-{
-    set_sys_clock_khz(AudioDriver::GetSysClockSpeed(), true);
+void setup() {
+  set_sys_clock_khz(AudioDriver::GetSysClockSpeed(), true);
 
-    bus_ctrl_hw->priority = BUSCTRL_BUS_PRIORITY_DMA_W_BITS |
-        BUSCTRL_BUS_PRIORITY_DMA_R_BITS | BUSCTRL_BUS_PRIORITY_PROC1_BITS;
+  bus_ctrl_hw->priority = BUSCTRL_BUS_PRIORITY_DMA_W_BITS | BUSCTRL_BUS_PRIORITY_DMA_R_BITS | BUSCTRL_BUS_PRIORITY_PROC1_BITS;
 
-    uint32_t seed = get_rosc_entropy_seed(32);
-    srand(seed);
+  uint32_t seed = get_rosc_entropy_seed(32);
+  srand(seed);
 
-    Serial.begin(115200);
-    // while (!Serial) {}
-    Serial.println("Serial initialised.");
-    WRITE_VOLATILE(serial_ready, true);
+  Serial.begin(115200);
+  // while (!Serial) {}
+  Serial.println("Serial initialised.");
+  WRITE_VOLATILE(serial_ready, true);
 
-    // Setup board
-    MEMLNaut::Initialize();
-    pinMode(33, OUTPUT);
+  // Setup board
+  MEMLNaut::Initialize();
+  pinMode(33, OUTPUT);
 
-    {
-        auto temp_interface = std::make_shared<INTERFACE_TYPE>();
-        temp_interface->setup(kN_InputParams, PAFSynthAudioApp<>::kN_Params);
-        MEMORY_BARRIER();
-        interface = temp_interface;
-        MEMORY_BARRIER();
-    }
-    // Setup interface with memory barrier protection
-    WRITE_VOLATILE(interface_ready, true);
-    // Bind interface after ensuring it's fully initialized
-    interface->bindInterface(false);
-    Serial.println("Bound interface to MEMLNaut.");
+  {
+    auto temp_interface = std::make_shared<INTERFACE_TYPE>();
+    temp_interface->setup(kN_InputParams, PAFSynthAudioApp<>::kN_Params);
+    MEMORY_BARRIER();
+    interface = temp_interface;
+    MEMORY_BARRIER();
+  }
+  // Setup interface with memory barrier protection
+  WRITE_VOLATILE(interface_ready, true);
+  // Bind interface after ensuring it's fully initialized
+  interface->bindInterface(false);
+  Serial.println("Bound interface to MEMLNaut.");
 
 
-    midi_interf = std::make_shared<MIDIInOut>();
-    midi_interf->Setup(0);
-    midi_interf->SetMIDISendChannel(1);
-    Serial.println("MIDI setup complete.");
-    if (midi_interf) {
-        midi_interf->SetNoteCallback([interface] (bool noteon, uint8_t note_number, uint8_t vel_value) {
-        if (noteon) {
-            uint8_t midimsg[2] = {note_number, vel_value };
-            queue_try_add(&audio_app->qMIDINoteOn, &midimsg);
-        }
-            Serial.printf("MIDI Note %d: %d\n", note_number, vel_value);
-        });
-        Serial.println("MIDI note callback set.");
+  midi_interf = std::make_shared<MIDIInOut>();
+  midi_interf->Setup(0);
+  midi_interf->SetMIDISendChannel(1);
+  Serial.println("MIDI setup complete.");
+  if (midi_interf) {
+    midi_interf->SetNoteCallback([interface](bool noteon, uint8_t note_number, uint8_t vel_value) {
+      if (noteon) {
+        uint8_t midimsg[2] = { note_number, vel_value };
+        queue_try_add(&audio_app->qMIDINoteOn, &midimsg);
+      }else{
+        uint8_t midimsg[2] = { note_number, vel_value };
+        queue_try_add(&audio_app->qMIDINoteOff, &midimsg);
+      }
+      Serial.printf("MIDI Note %d: %d\n", note_number, vel_value);
+    });
+    Serial.println("MIDI note callback set.");
 
-        interface->bindMIDI(midi_interf);
-    }
+    interface->bindMIDI(midi_interf);
+  }
 
 
 
-    WRITE_VOLATILE(core_0_ready, true);
-    while (!READ_VOLATILE(core_1_ready)) {
-        MEMORY_BARRIER();
-        delay(1);
-    }
+  WRITE_VOLATILE(core_0_ready, true);
+  while (!READ_VOLATILE(core_1_ready)) {
+    MEMORY_BARRIER();
+    delay(1);
+  }
 
-    std::shared_ptr<MessageView> helpView = std::make_shared<MessageView>("Help");
-    helpView->post("PAF synth CARL");
-    helpView->post("TA: Down: Forget replay memory");
-    helpView->post("MA: Up: Randomise actor");
-    helpView->post("MA: Down: Randomise critic");
-    helpView->post("MB: Up: Positive reward");
-    helpView->post("MB: Down: Negative reward");
-    helpView->post("Y: Optimisation rate");
-    helpView->post("Z: OU noise");
-    helpView->post("Joystick: Explore");
-    MEMLNaut::Instance()->disp->AddView(helpView);
+  std::shared_ptr<MessageView> helpView = std::make_shared<MessageView>("Help");
+  helpView->post("PAF synth CARL");
+  helpView->post("TA: Down: Forget replay memory");
+  helpView->post("MA: Up: Randomise actor");
+  helpView->post("MA: Down: Randomise critic");
+  helpView->post("MB: Up: Positive reward");
+  helpView->post("MB: Down: Negative reward");
+  helpView->post("Y: Optimisation rate");
+  helpView->post("Z: OU noise");
+  helpView->post("Joystick: Explore");
+  MEMLNaut::Instance()->disp->AddView(helpView);
 
-    MEMLNaut::Instance()->addSystemInfoView();
+  MEMLNaut::Instance()->addSystemInfoView();
 
-    Serial.println("Finished initialising core 0.");
-
+  Serial.println("Finished initialising core 0.");
 }
 
 PERF_DECLARE(MLSTATS);
 
-void loop()
-{
+void loop() {
 
-    PERIODIC_RUN_US(
-        PERF_BEGIN(MLSTATS);
-        MEMLNaut::Instance()->loop();
-        PERF_END(MLSTATS);
-        , 5000)
+  PERIODIC_RUN_US(
+    PERF_BEGIN(MLSTATS);
+    MEMLNaut::Instance()->loop();
+    PERF_END(MLSTATS);
+    , 5000)
 
-    static int AUDIO_MEM blip_counter = 0;
-    if (blip_counter++ > 100) {
-        blip_counter = 0;
-        Serial.println(".");
-        // Blink LED
-        digitalWrite(33, HIGH);
-        constexpr float audioHeadroomMul = 1.0/(1000000 * 48.0/kSampleRate);
-        Serial.printf("ml: %d, aud: %d, q: %f\n",PERF_GET_MEAN(MLSTATS), AUDIOLOOP_MEAN, AUDIOLOOP_MEAN * audioHeadroomMul);
+  PERIODIC_RUN_US(
+    static size_t blip_counter=0;
+    if (blip_counter++ > 10) {
+      blip_counter = 0;
+      Serial.println(".");
+      // Blink LED
+      digitalWrite(33, HIGH);
+      constexpr float audioHeadroomMul = 1.0 / (1000000 * 48.0 / kSampleRate);
+      Serial.printf("ml: %d, aud: %d, q: %f\n", PERF_GET_MEAN(MLSTATS), AUDIOLOOP_MEAN, AUDIOLOOP_MEAN * audioHeadroomMul);
     } else {
-        // Un-blink LED
-        digitalWrite(33, LOW);
+      // Un-blink LED
+      digitalWrite(33, LOW);
     }
+    , 100000)
+
+  PERIODIC_RUN_US(
     midi_interf->Poll();
-    // delay(10); // Add a small delay to avoid flooding the serial output
+    , 10000)
 }
 
 
-void AUDIO_FUNC(audio_block_callback)(float in[][kBufferSize], float out[][kBufferSize], size_t n_channels, size_t n_frames)
-{
-    for (size_t i = 0; i < n_frames; ++i) {
+void AUDIO_FUNC(audio_block_callback)(float in[][kBufferSize], float out[][kBufferSize], size_t n_channels, size_t n_frames) {
+  for (size_t i = 0; i < n_frames; ++i) {
 
-        stereosample_t x {
-            in[0][i],
-            in[1][i]
-        }, y;
+    stereosample_t x{
+      in[0][i],
+      in[1][i]
+    },
+      y;
 
-        // Audio processing
-        if (audio_app) {
-            y = audio_app->Process(x);
-        }
-
-        out[0][i] = y.L;
-        out[1][i] = y.R;
+    // Audio processing
+    if (audio_app) {
+      y = audio_app->Process(x);
     }
+
+    out[0][i] = y.L;
+    out[1][i] = y.R;
+  }
 }
 
 
-void setup1()
-{
-    while (!READ_VOLATILE(serial_ready)) {
-        MEMORY_BARRIER();
-        delay(1);
-    }
-
-    while (!READ_VOLATILE(interface_ready)) {
-        MEMORY_BARRIER();
-        delay(1);
-    }
-
-
-    // Create audio app with memory barrier protection
-    {
-        PAFSynthAudioApp<>* audio_raw = new (audio_app_mem) PAFSynthAudioApp<>();
-        audio_raw->Setup(AudioDriver::GetSampleRate(), interface);
-
-        // shared_ptr with custom deleter calling only the destructor (control block still allocates)
-        auto audio_deleter = [](PAFSynthAudioApp<>* p) { if (p) p->~PAFSynthAudioApp<>(); };
-        std::shared_ptr<PAFSynthAudioApp<>> temp_audio_app(audio_raw, audio_deleter);
-
-        MEMORY_BARRIER();
-        audio_app = temp_audio_app;
-        MEMORY_BARRIER();
-    }
-
-    AudioDriver::SetBlockCallback(audio_block_callback);
-    // Start audio driver
-    AudioDriver::Setup();
-    // AudioDriver::SetBlockCallback(audio_block_callback);
-
-
-    WRITE_VOLATILE(core_1_ready, true);
-    while (!READ_VOLATILE(core_0_ready)) {
-        MEMORY_BARRIER();
-        delay(1);
-    }
-
-    Serial.println("Finished initialising core 1.");
-}
-
-void loop1()
-{
-    // Audio app parameter processing loop
-    audio_app->loop();
+void setup1() {
+  while (!READ_VOLATILE(serial_ready)) {
+    MEMORY_BARRIER();
     delay(1);
+  }
+
+  while (!READ_VOLATILE(interface_ready)) {
+    MEMORY_BARRIER();
+    delay(1);
+  }
+
+
+  // Create audio app with memory barrier protection
+  {
+    PAFSynthAudioApp<>* audio_raw = new (audio_app_mem) PAFSynthAudioApp<>();
+    audio_raw->Setup(AudioDriver::GetSampleRate(), interface);
+
+    // shared_ptr with custom deleter calling only the destructor (control block still allocates)
+    auto audio_deleter = [](PAFSynthAudioApp<>* p) {
+      if (p) p->~PAFSynthAudioApp<>();
+    };
+    std::shared_ptr<PAFSynthAudioApp<>> temp_audio_app(audio_raw, audio_deleter);
+
+    MEMORY_BARRIER();
+    audio_app = temp_audio_app;
+    MEMORY_BARRIER();
+  }
+
+  AudioDriver::SetBlockCallback(audio_block_callback);
+  // Start audio driver
+  AudioDriver::Setup();
+  // AudioDriver::SetBlockCallback(audio_block_callback);
+
+
+  WRITE_VOLATILE(core_1_ready, true);
+  while (!READ_VOLATILE(core_0_ready)) {
+    MEMORY_BARRIER();
+    delay(1);
+  }
+
+  Serial.println("Finished initialising core 1.");
 }
 
+void loop1() {
+  // Audio app parameter processing loop
+  audio_app->loop();
+  delay(1);
+}
