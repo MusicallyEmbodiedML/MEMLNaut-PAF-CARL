@@ -11,6 +11,8 @@
 #include "src/memllib/synth/maxiPAF.hpp"
 #include "src/memllib/interface/InterfaceBase.hpp" // Added missing include
 
+#include <span>
+
 
 // #define ARPEGGIATOR
 class ADSRLite {
@@ -104,9 +106,115 @@ public:
     static constexpr size_t kN_Params = NPARAMS;
     static constexpr size_t nFREQs = 17;
     static constexpr float frequencies[nFREQs] = {100, 200, 400,800, 400, 800, 100,1600,100,400,100,50,1600,200,100,800,400};
+    
 
+    using VoiceSpaceFn = std::function<void(const std::array<float, NPARAMS>&)>;
+    struct VoiceSpace {
+        char name[16]="default";
+        VoiceSpaceFn mappingFunction = nullptr;
+    };
+
+    std::array<VoiceSpace, 2> voiceSpaces;
+    
+    VoiceSpaceFn currentVoiceSpace;
 
     PAFSynthAudioApp() : AudioAppBase<NPARAMS>() {
+
+        auto voiceSpace1 = [this](const std::array<float, NPARAMS>& params) {
+            p0Gain=1.f;
+            p1Gain=0.f;
+            p2Gain=0.f;
+            p3Gain=0.f;
+            
+            paf0_cf = (params[2] * params[2]  * 0.1f);
+            paf1_cf = (params[3] * params[3]  * 1.f);
+            paf2_cf = (params[4] * params[4]  * 1.f);
+            paf3_cf = (params[21] * params[21]  * 1.f);
+
+            paf0_bw = 0.1f + (params[5] * 0.2f);
+            paf1_bw = 0.1f + (params[6] * 2.f);
+            paf2_bw = 0.1f + (params[7] * 2.f);
+            paf3_bw = 0.1f + (params[22] * 2.f);
+
+            paf0_vib = (params[8] * params[8] * 0.1f);
+            paf1_vib = (params[9] * params[9] * 0.99f);
+            paf2_vib = (params[10] * params[10] * 0.99f);
+            paf3_vib = (params[23] * params[23] * 0.99f);
+
+            paf0_vfr = (params[11] * params[11]* 0.1f);
+            paf1_vfr = (params[12] * params[12] * 10.f);
+            paf2_vfr = (params[13] * params[13] * 10.f);
+            paf3_vfr = (params[24] * params[24] * 10.f);
+
+            paf0_shift = (params[14] * 10.f);
+            paf1_shift = (params[15] * 1000.f);
+            paf2_shift = (params[16] * 1000.f);
+            paf3_shift = (params[25] * 1000.f);
+
+            dl1mix = params[17] * params[17] * 0.4f;
+            // dl2mix = params[18] * params[18] * 0.4f;
+            detune = 1.0f + (params[18] * 0.1);
+
+            // euclidN = static_cast<size_t>(2 + (params[19] * 5));
+            dlfb = params[19] * 0.98f;
+
+            // envdec=((params[20] * 1.f) + 0.01f)/9000.f; // Decay rate for the envelope
+            env.setup(params[30] * 200.f,params[20] * params[20] * 500.f, params[31] * 0.5f, params[32] * 500.f );
+
+            sineShapeGain = params[26] * params[26];
+            sineShapeASym = params[27] * params[27] * 0.1f;
+            sineShapeMix = params[28];
+
+            rmGain = params[29] * params[29];
+        };  
+
+        auto voiceSpace2 = [this](const std::array<float, NPARAMS>& params) {
+            paf0_cf = (params[2] * params[2]  * 0.1f);
+            paf1_cf = (params[3] * params[3]  * 1.f);
+            paf2_cf = (params[4] * params[4]  * 1.f);
+            paf3_cf = (params[21] * params[21]  * 1.f);
+
+            paf0_bw = 0.1f + (params[5] * 2.f);
+            paf1_bw = 0.1f + (params[6] * 2.f);
+            paf2_bw = 0.1f + (params[7] * 2.f);
+            paf3_bw = 0.1f + (params[22] * 2.f);
+
+            paf0_vib = (params[8] * params[8] * 10.f);
+            paf1_vib = (params[9] * params[9] * 0.99f);
+            paf2_vib = (params[10] * params[10] * 0.99f);
+            paf3_vib = (params[23] * params[23] * 0.99f);
+
+            paf0_vfr = (params[11] * params[11]* 1.0f);
+            paf1_vfr = (params[12] * params[12] * 10.f);
+            paf2_vfr = (params[13] * params[13] * 10.f);
+            paf3_vfr = (params[24] * params[24] * 10.f);
+
+            paf0_shift = (params[14] * 1000.f);
+            paf1_shift = (params[15] * 1000.f);
+            paf2_shift = (params[16] * 1000.f);
+            paf3_shift = (params[25] * 1000.f);
+
+            dl1mix = params[17] * params[17] * 0.4f;
+            // dl2mix = params[18] * params[18] * 0.4f;
+            detune = 1.0f + (params[18] * 0.1);
+
+            // euclidN = static_cast<size_t>(2 + (params[19] * 5));
+            dlfb = params[19] * 0.98f;
+
+            // envdec=((params[20] * 1.f) + 0.01f)/9000.f; // Decay rate for the envelope
+            env.setup(params[30] * 200.f,params[20] * params[20] * 500.f, params[31] * 0.5f, params[32] * 500.f );
+
+            sineShapeGain = params[26] * params[26];
+            sineShapeASym = params[27] * params[27] * 0.1f;
+            sineShapeMix = params[28];
+
+            rmGain = params[29] * params[29];
+        };     
+
+        voiceSpaces[0] = {"default", voiceSpace1};
+        voiceSpaces[1] = {"bright", voiceSpace2};
+
+        currentVoiceSpace = voiceSpaces[0].mappingFunction;   
     };
 
     bool __force_inline euclidean(float phase, const size_t n, const size_t k, const size_t offset, const float pulseWidth)
@@ -130,22 +238,22 @@ public:
         // const float trig = pulse.square(1);
 
         paf0.play(x1, 1, baseFreq, baseFreq + (paf0_cf * baseFreq), paf0_bw * baseFreq, paf0_vib, paf0_vfr, paf0_shift, 0);
-        float p0 = *x1;
+        float p0 = *x1 * p0Gain;
 
         const float freq1 = baseFreq * detune;
 
         paf1.play(x1, 1, freq1, freq1 + (paf1_cf * freq1), paf1_bw * freq1, paf1_vib, paf1_vfr, paf1_shift, 1);
-        const float p1 = *x1;
+        const float p1 = *x1 * p1Gain;
 
         const float freq2 = freq1 * detune;
 
         paf2.play(x1, 1, freq2, freq2 + (paf2_cf * freq2), paf2_bw * freq2, paf2_vib, paf2_vfr, paf2_shift, 1);
-        const float p2 = *x1;
+        const float p2 = *x1 * p2Gain;
 
         const float freq3 = freq2 * detune;
 
         paf3.play(x1, 1, freq3, freq3 + (paf3_cf * freq3), paf3_bw * freq3, paf3_vib, paf3_vfr, paf3_shift, 1);
-        const float p3 = *x1;
+        const float p3 = *x1 * p3Gain;
 
         auto shapedSine = [](float phasor, float gain, float asym) -> float {
             // This function shapes the sine wave to create a foldback effect
@@ -154,7 +262,7 @@ public:
             return x;
         };
 
-        float y = p0; //+ p1 + p2 + p3;
+        float y = p0 + p1 + p2 + p3;
     
         // float rm = p0 * p1 * p2 * p3;
 
@@ -164,33 +272,33 @@ public:
 
 
     #ifdef ARPEGGIATOR
-        const float ph = phasorOsc.phasor(1);
-        const bool euclidNewNote = euclidean(ph, 12, euclidN, 0, 0.1f);
-        if(zxdetect.onZX(euclidNewNote)) {
-            envamp=0.8f;
-            freqIndex++;
-            if(freqIndex >= nFREQs) {
-                freqIndex = 0;
-            }
-            baseFreq = frequencies[freqIndex];
-    }else{
-            // constexpr float envdec = 0.2f/9000.f;
-            envamp -= envdec;
-            if (envamp < 0.f) {
-                envamp = 0.f;
-            }
-        }
+        // const float ph = phasorOsc.phasor(1);
+        // const bool euclidNewNote = euclidean(ph, 12, euclidN, 0, 0.1f);
+        // if(zxdetect.onZX(euclidNewNote)) {
+        //     envamp=0.8f;
+        //     freqIndex++;
+        //     if(freqIndex >= nFREQs) {
+        //         freqIndex = 0;
+        //     }
+        //     baseFreq = frequencies[freqIndex];
+        // }else{
+        //     // constexpr float envdec = 0.2f/9000.f;
+        //     envamp -= envdec;
+        //     if (envamp < 0.f) {
+        //         envamp = 0.f;
+        //     }
+        // }
     #else
-        if(newNote) {
-            newNote = false;
-            envamp=0.8f;
-    }else{
-            // constexpr float envdec = 0.2f/9000.f;
-            envamp -= envdec;
-            if (envamp < 0.f) {
-                envamp = 0.f;
-            }
-        }
+        // if(newNote) {
+        //     newNote = false;
+        //     envamp=0.8f;
+        // }else{
+        //     // constexpr float envdec = 0.2f/9000.f;
+        //     envamp -= envdec;
+        //     if (envamp < 0.f) {
+        //         envamp = 0.f;
+        //     }
+        // }
     #endif
         float envval = env.play();
         y = y * envval;
@@ -200,8 +308,7 @@ public:
         y *= noteVel;
     #endif
 
-        float d1 = (dl1.play(y, 100, 0.8f) * dl1mix);
-        // float d2 = (dl2.play(y, 15000, 0.8f) * dl2mix);
+        float d1 = (dl1.play(y, 100, dlfb) * dl1mix);
         y = y + d1;// + d2;
         stereosample_t ret { y, y };
         frame++;
@@ -216,23 +323,9 @@ public:
 
         paf0.init();
         paf0.setsr(maxiSettings::getSampleRate(), 1);
-        // paf0.freq(100, 0);
-        // // paf0.amp(1,0);
-        // paf0.bw(200,0);
-        // paf0.cf(210,0);
-        // paf0.vfr(5,0);
-        // paf0.vib(0.1,0);
-        // paf0.shift(10,0);
 
         paf1.init();
         paf1.setsr(maxiSettings::getSampleRate(), 1);
-        // paf1.freq(150, 0);
-        // // paf1.amp(1,0);
-        // paf1.bw(200,0);
-        // paf1.cf(210,0);
-        // paf1.vfr(5,0);
-        // paf1.vib(0.1,0);
-        // paf1.shift(10,0);
 
         paf2.init();
         paf2.setsr(maxiSettings::getSampleRate(), 1);
@@ -240,10 +333,7 @@ public:
         paf3.init();
         paf3.setsr(maxiSettings::getSampleRate(), 1);
 
-        // env.setupAR(10,100);
         arpFreq = frequencies[0];
-        // line.prepare(1.f,0.f,100.f,false);
-        // line.triggerEnable(true);
         envamp=1.f;
 
         env.setup(500,500,0.8,1000);
@@ -279,59 +369,7 @@ public:
     void ProcessParams(const std::array<float, NPARAMS>& params)
     {
         firstParamsReceived = true;
-        // // Map parameters to the synth
-        // synth_.mapParameters(params);
-        // //Serial.print("Params processed.");
-        // paf0_freq = 50.f + (params[0] * params[0] * 1000.f);
-        // paf1_freq = 50.f + (params[1] * params[1] * 1000.f);
-
-        // paf0_cf = arpFreq + (params[2] * params[2] * arpFreq * 1.f);
-        // paf1_cf = arpFreq + (params[3] * params[3] * arpFreq * 1.f);
-        // paf2_cf = arpFreq + (params[4] * params[4] * arpFreq * 1.f);
-        paf0_cf = (params[2] * params[2]  * 0.1f);
-        paf1_cf = (params[3] * params[3]  * 1.f);
-        paf2_cf = (params[4] * params[4]  * 1.f);
-        paf3_cf = (params[21] * params[21]  * 1.f);
-
-        // paf0_bw = 5.f + (params[5] * arpFreq * 0.5f);
-        // paf1_bw = 5.f + (params[6] * arpFreq * 0.5f);
-        // paf2_bw = 5.f + (params[7] * arpFreq * 0.5f);
-        paf0_bw = 0.1f + (params[5] * 0.2f);
-        paf1_bw = 0.1f + (params[6] * 2.f);
-        paf2_bw = 0.1f + (params[7] * 2.f);
-        paf3_bw = 0.1f + (params[22] * 2.f);
-
-        paf0_vib = (params[8] * params[8] * 0.1f);
-        paf1_vib = (params[9] * params[9] * 0.99f);
-        paf2_vib = (params[10] * params[10] * 0.99f);
-        paf3_vib = (params[23] * params[23] * 0.99f);
-
-        paf0_vfr = (params[11] * params[11]* 0.1f);
-        paf1_vfr = (params[12] * params[12] * 10.f);
-        paf2_vfr = (params[13] * params[13] * 10.f);
-        paf3_vfr = (params[24] * params[24] * 10.f);
-
-        paf0_shift = (params[14] * 10.f);
-        paf1_shift = (params[15] * 1000.f);
-        paf2_shift = (params[16] * 1000.f);
-        paf3_shift = (params[25] * 1000.f);
-
-        dl1mix = params[17] * params[17] * 0.4f;
-        // dl2mix = params[18] * params[18] * 0.4f;
-        detune = 1.0f + (params[18] * 0.1);
-
-        euclidN = static_cast<size_t>(2 + (params[19] * 5));
-
-        // envdec=((params[20] * 1.f) + 0.01f)/9000.f; // Decay rate for the envelope
-        env.setup(params[30] * 200.f,params[20] * params[20] * 500.f, params[31] * 0.5f, params[32] * 500.f );
-
-        sineShapeGain = params[26] * params[26];
-        sineShapeASym = params[27] * params[27] * 0.1f;
-        sineShapeMix = params[28];
-
-        rmGain = params[29] * params[29];
-        // sineShapeMixInv = 1.f-sineShapeMix;
-        // Serial.printf("%f %f %f %f %f\n", paf0_cf,  paf0_bw, paf0_vib, paf0_vfr, paf0_shift);
+        currentVoiceSpace(params);
     }
 
     queue_t qMIDINoteOn, qMIDINoteOff;
@@ -347,11 +385,12 @@ protected:
     maxiDelayline<15100> dl2;
 
     maxiOsc pulse;
-    // maxiEnvGen env;
 
     ADSRLite env;
 
     float frame=0;
+
+    float p0Gain=1.f, p1Gain = 1.f, p2Gain=1.f, p3Gain=1.f;
 
     float paf0_freq = 100;
     float paf1_freq = 100;
@@ -385,6 +424,7 @@ protected:
 
     float dl1mix = 0.0f;
     float dl2mix = 0.0f;
+    float dlfb = 0.5f;
 
     float rmGain = 0.f;
     
@@ -413,6 +453,7 @@ protected:
     bool firstParamsReceived = false;
 
     float envdec=0.2f/9000.f; // Decay rate for the envelope
+
 
 };
 

@@ -8,6 +8,8 @@
 #include "hardware/structs/bus_ctrl.h"
 #include "PAFSynthAudioApp.hpp"
 #include "src/memllib/examples/InterfaceRL.hpp"
+#include "src/memllib/hardware/memlnaut/display/XYPadView.hpp"  
+#include "src/memllib/hardware/memlnaut/display/MessageView.hpp"
 
 
 #define INTERFACE_TYPE InterfaceRL
@@ -125,6 +127,40 @@ void setup() {
     MEMORY_BARRIER();
     delay(1);
   }
+
+  std::shared_ptr<XYPadView> noteTrigView = std::make_shared<XYPadView>("Play", TFT_SILVER);
+
+  // Cache MIDI notes being echoed
+  static bool is_playing_note = false;
+  static uint8_t last_note_number = 0;
+
+  noteTrigView->SetOnTouchCallback([](float x, float y) {
+      Serial.printf("Note trigger at: %.2f, %.2f\n", x, y);
+      if (audio_app) {
+          // If a note is already playing, stop it
+          if (is_playing_note) {
+              midi_interf->sendNoteOff(last_note_number, 0);
+              is_playing_note = false;
+          }
+          int noteVel = static_cast<uint8_t>(powf(y * (1.f/127.f), 0.5f) * 127.f);
+          uint8_t midimsg[2] = {static_cast<uint8_t>(x * 127.f), noteVel};
+          queue_try_add(&audio_app->qMIDINoteOn, &midimsg);
+          midi_interf->sendNoteOn(midimsg[0], midimsg[1]);
+          last_note_number = midimsg[0];
+          is_playing_note = true; // Set flag to indicate a note is playing
+      }
+  });
+  noteTrigView->SetOnTouchReleaseCallback([](float x, float y) {
+      Serial.printf("Note release at: %.2f, %.2f\n", x, y);
+      if (audio_app) {
+          uint8_t midimsg[2] = {last_note_number,0};
+          queue_try_add(&audio_app->qMIDINoteOff, &midimsg);
+          midi_interf->sendNoteOff(last_note_number, 0);
+          is_playing_note = false; // Reset flag when note is released
+      }
+  });
+
+  MEMLNaut::Instance()->disp->AddView(noteTrigView);
 
   std::shared_ptr<MessageView> helpView = std::make_shared<MessageView>("Help");
   helpView->post("PAF synth CARL");
