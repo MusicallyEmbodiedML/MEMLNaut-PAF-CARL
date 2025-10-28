@@ -113,9 +113,9 @@ void setup() {
         uint8_t midimsg[2] = { note_number, vel_value };
         queue_try_add(&audio_app->qMIDINoteOff, &midimsg);
       }
-      Serial.printf("MIDI Note %d: %d\n", note_number, vel_value);
+      // Serial.printf("MIDI Note %d: %d %d\n", note_number, vel_value, noteon);
     });
-    Serial.println("MIDI note callback set.");
+    // Serial.println("MIDI note callback set.");
 
     interface->bindMIDI(midi_interf);
   }
@@ -135,7 +135,7 @@ void setup() {
   static uint8_t last_note_number = 0;
 
   noteTrigView->SetOnTouchCallback([](float x, float y) {
-      Serial.printf("Note trigger at: %.2f, %.2f\n", x, y);
+      // Serial.printf("Note trigger at: %.2f, %.2f\n", x, y);
       if (audio_app) {
           // If a note is already playing, stop it
           if (is_playing_note) {
@@ -151,7 +151,7 @@ void setup() {
       }
   });
   noteTrigView->SetOnTouchReleaseCallback([](float x, float y) {
-      Serial.printf("Note release at: %.2f, %.2f\n", x, y);
+      // Serial.printf("Note release at: %.2f, %.2f\n", x, y);
       if (audio_app) {
           uint8_t midimsg[2] = {last_note_number,0};
           queue_try_add(&audio_app->qMIDINoteOff, &midimsg);
@@ -181,13 +181,15 @@ void setup() {
 
 PERF_DECLARE(MLSTATS);
 
+#define ML_INFERENCE_PERIOD_US 5000
+
 void loop() {
 
   PERIODIC_RUN_US(
     PERF_BEGIN(MLSTATS);
     MEMLNaut::Instance()->loop();
     PERF_END(MLSTATS);
-    , 5000)
+    , ML_INFERENCE_PERIOD_US)
 
   PERIODIC_RUN_US(
     static size_t blip_counter=0;
@@ -204,9 +206,8 @@ void loop() {
     }
     , 100000)
 
-  PERIODIC_RUN_US(
-    midi_interf->Poll();
-    , 10000)
+  
+
 }
 
 
@@ -272,9 +273,22 @@ void setup1() {
 
   Serial.println("Finished initialising core 1.");
 }
-
 void loop1() {
   // Audio app parameter processing loop
-  audio_app->loop();
-  delay(1);
+  PERIODIC_RUN_US(
+    audio_app->loop();
+    , ML_INFERENCE_PERIOD_US)
+  
+  PERIODIC_RUN_US(
+    midi_interf->Poll();
+    , 10000)
+
+#if 1 //test ARP
+  PERIODIC_RUN_US(
+    static size_t arpCount=0;
+    static size_t noteIndex=30;
+
+    , 100000)
+#endif
+
 }
