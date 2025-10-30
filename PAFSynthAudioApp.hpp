@@ -18,8 +18,8 @@
 
 // #define ARPEGGIATOR
 
-// template<size_t NPARAMS=33>
-template<size_t NPARAMS=1>
+template<size_t NPARAMS=33>
+// template<size_t NPARAMS=1>
 class PAFSynthAudioApp : public AudioAppBase<NPARAMS>
 {
 public:
@@ -206,7 +206,7 @@ public:
 
         currentVoiceSpace = voiceSpaces[2].mappingFunction;   
 #endif
-        auto voiceSpaceTest = [this](const std::array<float, NPARAMS>& params) {
+        auto voiceSpaceSingle1 = [this](const std::array<float, NPARAMS>& params) {
             p0Gain=1.f;
             p1Gain=0.f;
             p2Gain=0.f;
@@ -242,11 +242,11 @@ public:
             // euclidN = static_cast<size_t>(2 + (params[19] * 5));
             dlfb = 0.f;
 
-            env.setup(1.f,100.f,0.3f, 200.f, sampleRatef );
+            env.setup(params[1] * 20.f , params[2] * 200.f, params[3] * 0.4f, params[4] * 300.f, sampleRatef );
 
-            sineShapeGain = 0.f;
+            sineShapeGain = params[5] * params[5] * 0.2f;
             sineShapeASym = 0.f;
-            sineShapeMix = 0.f;
+            sineShapeMix = params[6] * 0.3f;
 
             rmGain = 0.f;
             feedbackGain = 0.0f;
@@ -255,7 +255,7 @@ public:
             fbSmoothAlpha=0.f;
         };  
 
-        voiceSpaces[0] = {"test", voiceSpaceTest};
+        voiceSpaces[0] = {"test", voiceSpaceSingle1};
 
         currentVoiceSpace = voiceSpaces[0].mappingFunction;   
 
@@ -343,7 +343,7 @@ public:
         // }
     #endif
         float envval = env.play();
-        // y = y * envval;
+        y = y * envval;
 
     // #ifndef ARPEGGIATOR
     //     y *= noteVel;

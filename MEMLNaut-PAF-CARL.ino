@@ -283,12 +283,12 @@ void loop1() {
     midi_interf->Poll();
     , 10000)
 
-#if 1 //test ARP
-  PERIODIC_RUN_US(
-    static size_t arpCount=0;
-    static size_t noteIndex=30;
+// #if 1 //test ARP
+//   PERIODIC_RUN_US(
+//     static size_t arpCount=0;
+//     static size_t noteIndex=30;
 
-    , 100000)
-#endif
+//     , 100000)
+// #endif
 
 }
